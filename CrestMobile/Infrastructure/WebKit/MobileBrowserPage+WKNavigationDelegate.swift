@@ -58,6 +58,7 @@ extension MobileBrowserPage: WKNavigationDelegate {
         guard isCurrentNavigation(navigation) else { return }
         if let url = webView.url { reporter.committed(url) }
         WebKitDevToolsDocument.documentCommitted(in: webView)
+        updateVaultStore()
         if let script = DevToolsPin.shared.clientScript(for: webView.url) {
             webView.evaluateJavaScript(script, completionHandler: nil)
         }

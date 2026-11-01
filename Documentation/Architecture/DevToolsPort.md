@@ -118,6 +118,40 @@ It can't keep Crest itself running: the port stops when Crest leaves the
 foreground, and reopens with a new token when it returns. A client that was
 connected must connect again.
 
+## Vault store
+
+SLICC's vault runs in a frame inside SEVEN and keeps its records in IndexedDB.
+WebKit holds a cross-origin frame's storage in memory, so those records are gone
+when Crest quits, and the person enters their keys again. This is separate from
+the port, and works with the port off.
+
+`BrowserVaultStore` keeps each Space's entries for an origin in a file sealed
+with AES-GCM, excluded from backup, with a key per Space in the device-only
+Keychain. Deleting a Space deletes both. The sealed data is bound to its Space and
+origin, so a file can't be moved to stand in for another.
+
+A page reaches it through `webkit.messageHandlers.crestVaultStore.postMessage`,
+which answers with a promise:
+
+| Call | Answer |
+| --- | --- |
+| `{op: "get", key}` | The string, or null |
+| `{op: "put", key, value}` | true |
+| `{op: "delete", key}` | true |
+| `{op: "list"}` | The keys, sorted |
+
+Failures reject with `EACCES`, `EINVAL` or `EIO`. An origin keeps at most 16 MiB
+in a Space, and `EIO` is also what a call over that limit gets.
+
+Two lists decide who gets through. `devTools.allowedOrigins` names the pages that
+are offered the handler at all, so an ordinary site doesn't see it.
+`devTools.vaultOrigins`, `https://vault.sliccy.ai` by default, names the frames it
+answers, judged by the origin WebKit reports for the sender. SEVEN's own page is
+refused: an agent runs there, and the vault exists to keep values from it.
+
+Private windows and ephemeral sessions get no handler, since their storage is
+meant to end with them. This is iOS only: SEVEN on a Mac has Chrome.
+
 ## Chromium
 
 Pass-through needs a client inside the engine, `PageDevTools` in the overlay. It

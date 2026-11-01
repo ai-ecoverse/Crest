@@ -48,6 +48,10 @@ final class MobileBrowserPageStoreRegistry: BrowserSpaceDataDeleting {
         guard spacesDeletingData.insert(deletion.spaceID).inserted else { return }
         defer { spacesDeletingData.remove(deletion.spaceID) }
 
+        let vaultStore = BrowserVaultStore()
+        for profileID in Set([deletion.profileID] + (deletion.erasedProfileIDs ?? [])) {
+            vaultStore.removeAll(profileID: profileID)
+        }
         stores = stores.filter { $0.value.value != nil }
         let liveStores = stores.values.compactMap(\.value)
         for store in liveStores where store !== primary {

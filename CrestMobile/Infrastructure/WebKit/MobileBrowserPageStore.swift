@@ -169,6 +169,8 @@ final class MobileBrowserPageStore:
     /// Whether this store holds a private window's pages, which no DevTools
     /// client ever sees.
     var isPrivateBrowsing: Bool { browsingMode.isPrivate }
+    /// Whether pages here keep what they store after Crest quits.
+    var keepsWebsiteData: Bool { !isPrivateBrowsing && !usesEphemeralWebsiteDataStores }
 
     /// Which tab of the workspace belongs to which Space and profile, which
     /// page residency follows.

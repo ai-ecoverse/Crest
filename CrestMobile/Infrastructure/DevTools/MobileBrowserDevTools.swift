@@ -66,6 +66,8 @@ final class MobileBrowserDevTools: DevToolsBrowsing {
         /// `CREST_DEVTOOLS_OPEN` opens a tab at launch, as the person would, and
         /// `CREST_DEVTOOLS_EXPOSE_CLIENTS` lets a client inspect allowed origins'
         /// own pages, to watch a page that is itself a client boot.
+        /// `CREST_DEVTOOLS_VAULT_ORIGINS` lists the origins the vault store
+        /// answers, for a vault on a preview.
         private func startForValidation() {
             let environment = ProcessInfo.processInfo.environment
             guard let mode = environment["CREST_DEVTOOLS_PORT"] else { return }
@@ -73,6 +75,10 @@ final class MobileBrowserDevTools: DevToolsBrowsing {
                 allowedOrigins = origins.split(separator: ",").map(String.init)
             }
             exposesClients = environment["CREST_DEVTOOLS_EXPOSE_CLIENTS"] != nil
+            if let vaults = environment["CREST_DEVTOOLS_VAULT_ORIGINS"] {
+                UserDefaults.standard.set(
+                    vaults.split(separator: ",").map(String.init), forKey: "devTools.vaultOrigins")
+            }
             Task {
                 await start(usesTLS: mode != "plain")
                 guard let endpoint else { return }

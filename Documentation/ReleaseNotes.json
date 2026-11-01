@@ -4637,6 +4637,10 @@
     "devtools-port-error-text": {
       "category": "internal",
       "message": "Report a script error's message over the DevTools port, which WebKit's stack leaves out"
+    },
+    "vault-store": {
+      "category": "internal",
+      "message": "Keep a web vault's records across launches on iOS, sealed per Space and origin with a key in the Keychain"
     }
   }
 }

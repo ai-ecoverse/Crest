@@ -27,6 +27,8 @@ final class MobileBrowserPage: NSObject, BrowserMediaSessionCommandEndpoint {
 
     /// The store that owns this page. Weak because the store owns the page.
     weak var host: MobileBrowserPageStore?
+    /// The vault store this page offers, while it shows an allowed origin.
+    @ObservationIgnored private var vaultStoreBridge: BrowserVaultStoreBridge?
 
     /// True when web content opened this page through `window.open()`. WebKit
     /// drives such a page's history, so it neither restores nor archives any.
@@ -374,6 +376,24 @@ final class MobileBrowserPage: NSObject, BrowserMediaSessionCommandEndpoint {
         webKitPage.attach(self)
         if loadsInitialURL, webView.url == nil, let url = tab.url {
             load(url)
+        }
+    }
+
+    /// Offers the vault store to the document that just committed, or takes it
+    /// away. An ordinary site never sees it, and neither does a page whose
+    /// storage is meant to end with it.
+    func updateVaultStore() {
+        let controller = webView.configuration.userContentController
+        let isOffered =
+            ownsUserContentController && host?.keepsWebsiteData == true
+            && BrowserVaultAccess.current.offers(toPage: webView.url?.devToolsOrigin)
+        if isOffered, vaultStoreBridge == nil {
+            let bridge = BrowserVaultStoreBridge(profileID: profileID)
+            controller.addScriptMessageHandler(bridge, contentWorld: .page, name: BrowserVaultStoreBridge.name)
+            vaultStoreBridge = bridge
+        } else if !isOffered, vaultStoreBridge != nil {
+            controller.removeScriptMessageHandler(forName: BrowserVaultStoreBridge.name, contentWorld: .page)
+            vaultStoreBridge = nil
         }
     }
 
