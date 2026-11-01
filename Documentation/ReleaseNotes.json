@@ -4641,6 +4641,10 @@
     "vault-store": {
       "category": "internal",
       "message": "Keep a web vault's records across launches on iOS, sealed per Space and origin with a key in the Keychain"
+    },
+    "vault-store-unreadable-file": {
+      "category": "internal",
+      "message": "Fail a vault store call when its file can't be read, where the next write used to replace what it held"
     }
   }
 }

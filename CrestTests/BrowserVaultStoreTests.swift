@@ -86,6 +86,23 @@ final class BrowserVaultStoreTests: XCTestCase {
         XCTAssertThrowsError(try store.value(for: "records", profileID: profile, origin: "https://other.example"))
     }
 
+    func testAnUnreadableFileIsNeverTakenForAnEmptyStore() throws {
+        let profile = UUID()
+        try store.set("sealed", for: "records", profileID: profile, origin: vault)
+        let folder = directory.appendingPathComponent(profile.uuidString)
+        let name = try XCTUnwrap(FileManager.default.contentsOfDirectory(atPath: folder.path).first)
+        let file = folder.appendingPathComponent(name)
+        try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: file.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path) }
+
+        XCTAssertThrowsError(try store.value(for: "records", profileID: profile, origin: vault))
+        XCTAssertThrowsError(try store.set("other", for: "next", profileID: profile, origin: vault))
+
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path)
+        XCTAssertEqual(try store.value(for: "records", profileID: profile, origin: vault), "sealed")
+        XCTAssertNil(try store.value(for: "next", profileID: profile, origin: vault))
+    }
+
     func testDeletingASpaceForgetsItsValues() throws {
         let profile = UUID()
         try store.set("sealed", for: "records", profileID: profile, origin: vault)

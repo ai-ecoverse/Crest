@@ -80,8 +80,16 @@ struct BrowserVaultStore: Sendable {
     }
 
     private func entries(profileID: UUID, origin: String) throws(Failure) -> [String: String] {
-        guard let sealed = try? Data(contentsOf: file(profileID: profileID, origin: origin)) else { return [:] }
         do {
+            // Only a missing file means nothing is kept: a file that can't be
+            // read yet, as before first unlock, would otherwise look empty and
+            // the next write would replace it.
+            let sealed: Data
+            do {
+                sealed = try Data(contentsOf: file(profileID: profileID, origin: origin))
+            } catch CocoaError.fileReadNoSuchFile, CocoaError.fileNoSuchFile {
+                return [:]
+            }
             let box = try AES.GCM.SealedBox(combined: sealed)
             let plain = try AES.GCM.open(
                 box, using: try key(profileID: profileID),
