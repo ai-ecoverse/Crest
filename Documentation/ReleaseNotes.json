@@ -4653,6 +4653,10 @@
     "devtools-port-child-frames": {
       "category": "internal",
       "message": "Report child frames with ids of their own over the DevTools port, and answer paused documents during a navigation"
+    },
+    "devtools-port-blank-frame-origin": {
+      "category": "internal",
+      "message": "Report a blank frame's origin as its page's over the DevTools port, where clients refused the page"
     }
   }
 }

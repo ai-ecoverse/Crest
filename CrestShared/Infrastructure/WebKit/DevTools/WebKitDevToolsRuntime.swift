@@ -196,6 +196,8 @@ enum WebKitDevToolsRuntime {
           if (inside && inside !== "about:blank") return inside;
           return element.src || (element.hasAttribute("srcdoc") ? "about:srcdoc" : "about:blank");
         };
+        const isOpaque = (element) =>
+          element.hasAttribute("sandbox") && !element.sandbox.contains("allow-same-origin");
         const walkFrames = (root, found) => {
           for (const node of root.querySelectorAll("*")) {
             if (isFrame(node)) found.push(node);
@@ -214,7 +216,7 @@ enum WebKitDevToolsRuntime {
               named.add(id);
               frameIds.set(element, id);
             }
-            return { id: frameIdOf(element), url };
+            return { id: frameIdOf(element), url, opaque: isOpaque(element) };
           });
           const known = new Set(frames.map((frame) => frame.url));
           // A closed shadow root hides its frames from every script, but their

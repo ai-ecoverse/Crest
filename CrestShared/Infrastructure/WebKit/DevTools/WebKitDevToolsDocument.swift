@@ -540,17 +540,24 @@ final class WebKitDevToolsDocument: NSObject {
         guard case .array(let frames)? = listed["frames"] else { return .object(["frame": frameValue()]) }
         let children = frames.map { frame -> DevToolsValue in
             .object([
-                "frame": childFrameValue(id: frame["id"] ?? .string(""), url: frame["url"]?.string ?? "about:blank")
+                "frame": childFrameValue(
+                    id: frame["id"] ?? .string(""), url: frame["url"]?.string ?? "about:blank",
+                    isOpaque: frame["opaque"] == .bool(true))
             ])
         }
         guard !children.isEmpty else { return .object(["frame": frameValue()]) }
         return .object(["frame": frameValue(), "childFrames": .array(children)])
     }
 
-    private func childFrameValue(id: DevToolsValue, url: String) -> DevToolsValue {
-        .object([
+    /// A blank or `srcdoc` frame has no address of its own and takes the page's
+    /// origin, unless a sandbox gives it an opaque one.
+    private func childFrameValue(id: DevToolsValue, url: String, isOpaque: Bool = false) -> DevToolsValue {
+        let inherited = url.hasPrefix("about:") && !isOpaque
+        let origin =
+            inherited ? frameValue()["securityOrigin"] : URL(string: url)?.devToolsOrigin.map(DevToolsValue.string)
+        return .object([
             "id": id, "parentId": .string(frameID), "loaderId": .string(loaderID), "url": .string(url),
-            "domainAndRegistry": .string(""), "securityOrigin": .string(URL(string: url)?.devToolsOrigin ?? "null"),
+            "domainAndRegistry": .string(""), "securityOrigin": origin ?? .string("null"),
             "mimeType": .string("text/html"), "secureContextType": .string("Secure"),
             "crossOriginIsolatedContextType": .string("NotIsolated"), "gatedAPIFeatures": .array([]),
         ])
