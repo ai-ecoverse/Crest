@@ -34,6 +34,7 @@ extension BrowserPage: WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation?) {
+        WebKitDevToolsDocument.documentCommitted(in: webView)
         if let script = DevToolsPin.shared.clientScript(for: webView.url) {
             webView.evaluateJavaScript(script, completionHandler: nil)
         }

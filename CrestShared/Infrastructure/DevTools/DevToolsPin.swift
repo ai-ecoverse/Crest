@@ -20,6 +20,9 @@ final class DevToolsPin {
     private var allowedOrigins: Set<String> = []
     private var endpoint: DevToolsEndpoint?
 
+    /// Whether a port is open.
+    var isOpen: Bool { endpoint != nil }
+
     // MARK: - Actions - Pinning
 
     func pin(fingerprint: Data?, endpoint: DevToolsEndpoint, allowedOrigins: Set<String>) {

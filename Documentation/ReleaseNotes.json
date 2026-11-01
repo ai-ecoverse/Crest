@@ -4629,6 +4629,10 @@
     "devtools-port": {
       "category": "new",
       "message": "Turn on a DevTools port so an agent running in an allowed website can control your open tabs."
+    },
+    "devtools-port-frame-addresses": {
+      "category": "internal",
+      "message": "Keep the addresses of a page's frames while the DevTools port is open, so a client that attaches later hears of them"
     }
   }
 }

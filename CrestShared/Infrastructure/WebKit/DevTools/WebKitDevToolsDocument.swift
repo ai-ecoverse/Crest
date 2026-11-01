@@ -77,6 +77,8 @@ final class WebKitDevToolsDocument: NSObject {
     private static let firstDocumentWait: Duration = .seconds(10)
     /// The documents sessions are attached to now, one per page.
     private static var attached = NSMapTable<WKWebView, WebKitDevToolsDocument>.weakToStrongObjects()
+    /// Addresses each page's frames went to in its current document.
+    private static var frameAddresses = NSMapTable<WKWebView, FrameAddresses>.weakToStrongObjects()
 
     // MARK: - Variables
 
@@ -111,8 +113,6 @@ final class WebKitDevToolsDocument: NSObject {
     private var sawLoadStart = false
     private var commitWaiters: [CheckedContinuation<Void, Never>] = []
     private var openDialog: CheckedContinuation<(accepted: Bool, text: String?), Never>?
-    /// Addresses frames of this document went to.
-    private var navigatedFrames: Set<String> = []
     /// Navigations held for a client's answer, by request.
     private var paused: [String: (session: WebKitDevToolsPage, answer: CheckedContinuation<Bool, Never>)] = [:]
     private var nextPause = 1
@@ -226,11 +226,22 @@ final class WebKitDevToolsDocument: NSObject {
         return true
     }
 
-    /// Notes a frame's navigation, which a page can't always see for itself: a
-    /// closed shadow root hides its frames from every script.
+    /// Notes a frame's navigation while the port is open, whether or not a
+    /// client attached yet. A page can't always see its frames for itself: a
+    /// closed shadow root hides them from every script, and no script reaches
+    /// into a cross-origin frame, so a frame nested in one is known only here.
+    /// A client that attaches later still hears about a protected frame the
+    /// page loaded first. A blank frame has no address to add.
     static func noteFrame(_ url: URL?, in webView: WKWebView) {
-        guard let url, let document = attached.object(forKey: webView) else { return }
-        document.navigatedFrames.insert(url.absoluteString)
+        guard DevToolsPin.shared.isOpen, let url, url.scheme != "about" else { return }
+        let addresses = frameAddresses.object(forKey: webView) ?? FrameAddresses()
+        addresses.urls.insert(url.absoluteString)
+        frameAddresses.setObject(addresses, forKey: webView)
+    }
+
+    /// Forgets the frames of the document `webView` replaced.
+    static func documentCommitted(in webView: WKWebView) {
+        frameAddresses.removeObject(forKey: webView)
     }
 
     /// Whether a client attached to the page in `webView`.
@@ -484,7 +495,8 @@ final class WebKitDevToolsDocument: NSObject {
     /// tell what the page embeds, and can't be driven: `WKWebView` reaches only
     /// the main frame. An address alone is all a closed shadow root gives up.
     func frameTree() async throws -> DevToolsValue {
-        let request = DevToolsValue.object(["navigated": .array(navigatedFrames.sorted().map(DevToolsValue.string))])
+        let navigated = webView.flatMap { Self.frameAddresses.object(forKey: $0)?.urls } ?? []
+        let request = DevToolsValue.object(["navigated": .array(navigated.sorted().map(DevToolsValue.string))])
         let listed = try await run("frames", request)
         guard case .array(let frames)? = listed["frames"] else { return .object(["frame": frameValue()]) }
         let children = frames.map { frame -> DevToolsValue in
@@ -616,7 +628,6 @@ final class WebKitDevToolsDocument: NSObject {
         didReportLoad = false
         didReportContent = false
         worlds = [worlds[0]]
-        navigatedFrames = []
         for session in sessions { session.report("Runtime.executionContextsCleared", when: session.isRuntimeEnabled) }
         try? await installRuntime(in: worlds[0])
         documentID = await readDocumentID()
@@ -788,6 +799,13 @@ final class WebKitDevToolsDocument: NSObject {
     private func jsonString(_ text: String) -> String {
         (try? DevToolsValue.string(text).text()) ?? "\"\""
     }
+}
+
+// MARK: - Frame addresses
+
+/// The addresses one page's frames went to.
+private final class FrameAddresses {
+    var urls: Set<String> = []
 }
 
 // MARK: - Reports

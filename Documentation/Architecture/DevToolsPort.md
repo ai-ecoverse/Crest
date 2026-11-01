@@ -68,7 +68,9 @@ which its navigation delegate refuses.
 - **Only the main frame** can be driven. `Page.getFrameTree` and `DOM.getDocument`
   still list a page's frames, so a client can tell what it embeds. They come from
   the DOM, open shadow roots included, and from the document's resource timeline
-  and the navigation delegate, which is all a closed shadow root gives up.
+  and the navigation delegate, which is all a closed shadow root gives up. The
+  delegate alone sees a frame nested in a cross-origin frame, and only from when
+  the port opened, so a page already loaded by then can hide one until it reloads.
   `Page.createIsolatedWorld` refuses a child frame.
 - **Only documents can be paused.** `WKWebView` can't pause a request, but a
   navigation delegate can hold a navigation, so `Fetch.enable` with `Document`

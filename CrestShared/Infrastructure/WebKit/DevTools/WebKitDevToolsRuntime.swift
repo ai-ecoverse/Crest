@@ -189,10 +189,10 @@ enum WebKitDevToolsRuntime {
         };
         const isFrame = (node) => node instanceof Element && (node.localName === "iframe" || node.localName === "frame");
         const frameURL = (element) => {
-          try {
-            const href = element.contentWindow?.location?.href;
-            if (href) return href;
-          } catch {}
+          // Only a same-origin frame opens its document to the page; a
+          // cross-origin one's window can answer with a placeholder.
+          const inside = element.contentDocument?.URL;
+          if (inside && inside !== "about:blank") return inside;
           return element.src || (element.hasAttribute("srcdoc") ? "about:srcdoc" : "about:blank");
         };
         const walkFrames = (root, found) => {
