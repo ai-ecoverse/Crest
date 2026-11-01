@@ -11,6 +11,10 @@ extension BrowserPlatformPage {
         _ challenge: URLAuthenticationChallenge,
         completionHandler: @escaping @MainActor @Sendable (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
     ) {
+        if let credential = DevToolsPin.shared.credential(for: challenge, pageURL: webKitView?.url) {
+            completionHandler(.useCredential, credential)
+            return
+        }
         if let identity = BrowserServerTrustIdentity.challengeIdentity(for: challenge) {
             if serverTrustOverrides.isApproved(identity, for: profileID),
                 let trust = challenge.protectionSpace.serverTrust

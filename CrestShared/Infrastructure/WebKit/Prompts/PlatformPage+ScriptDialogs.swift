@@ -11,6 +11,14 @@ extension BrowserPlatformPage {
         _ kind: JavaScriptDialogKind, message: String, defaultText: String?, frame: WKFrameInfo,
         answer: @escaping @MainActor (Bool, String?) -> Void
     ) {
+        if let webView = webKitView, WebKitDevToolsDocument.answersDialogs(in: webView) {
+            Task { @MainActor in
+                let reply = await WebKitDevToolsDocument.askClient(
+                    type: String(describing: kind), message: message, defaultText: defaultText, in: webView)
+                answer(reply.accepted, reply.text)
+            }
+            return
+        }
         guard let webKitPage = webKitEnginePage else { return answer(false, nil) }
         webKitPage.ask(
             ScriptDialogQuestion(

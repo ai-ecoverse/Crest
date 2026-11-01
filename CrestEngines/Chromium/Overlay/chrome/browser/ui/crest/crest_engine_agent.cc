@@ -677,4 +677,53 @@ void PageAgent::NetworkEvent(const std::string& method, const base::DictValue& p
   }
 }
 
+PageDevTools::PageDevTools(content::WebContents* contents,
+                           const engine::Guid& page,
+                           const engine::Guid& session,
+                           Present present)
+    : page_(page), session_(session), present_(std::move(present)) {
+  Attach(contents);
+}
+
+PageDevTools::~PageDevTools() {
+  if (host_) {
+    host_->DetachClient(this);
+  }
+}
+
+void PageDevTools::Attach(content::WebContents* contents) {
+  if (!contents || !IsWebPage(contents->GetPrimaryMainFrame()->GetLastCommittedURL())) {
+    return;
+  }
+  scoped_refptr<content::DevToolsAgentHost> host = content::DevToolsAgentHost::GetOrCreateFor(contents);
+  if (host && host->AttachClient(this)) {
+    host_ = std::move(host);
+  }
+}
+
+bool PageDevTools::Send(const std::string& message) {
+  if (!host_ || message.size() > kMaximumMessageBytes) {
+    return false;
+  }
+  host_->DispatchProtocolMessage(this, base::as_byte_span(message));
+  return true;
+}
+
+void PageDevTools::DispatchProtocolMessage(content::DevToolsAgentHost*, base::span<const uint8_t> message) {
+  present_.Run(engine::PageDevToolsMessage{.page_id = page_,
+                                           .session_id = session_,
+                                           .message = std::string(base::as_string_view(message))});
+}
+
+void PageDevTools::AgentHostClosed(content::DevToolsAgentHost*) {
+  host_.reset();
+  present_.Run(engine::PageDevToolsClosed{.page_id = page_, .session_id = session_});
+}
+
+bool PageDevTools::MayAttachToURL(const GURL& url, bool is_webui) {
+  // DevTools asks again as the page navigates, and lets the client go of a
+  // page that left the web.
+  return !is_webui && IsWebPage(url);
+}
+
 }  // namespace crest

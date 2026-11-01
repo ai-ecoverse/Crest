@@ -25,6 +25,7 @@ namespace crest {
 
 class EngineBinding;
 class PageAgent;
+class PageDevTools;
 class PageContent;
 class PageDocuments;
 class PageInfoBars;
@@ -177,6 +178,9 @@ class EnginePage final : public content::WebContentsObserver,
   // and on one still being made from the moment it goes live, before its first
   // load.
   bool Answer(const engine::ObservePageActivity& request);
+  bool Answer(const engine::OpenPageDevTools& request);
+  bool Answer(const engine::SendPageDevTools& request);
+  bool Answer(const engine::ClosePageDevTools& request);
   bool Answer(const engine::OpenInspector& request);
   bool Answer(const engine::CloseInspector& request);
   bool Answer(const engine::PageInspected& request) const;
@@ -389,6 +393,8 @@ class EnginePage final : public content::WebContentsObserver,
   std::unique_ptr<PageInspector> inspector_;
   std::unique_ptr<PageContent> content_;
   std::unique_ptr<PageAgent> agent_;
+  // The DevTools port's clients in this page, by session.
+  std::map<std::string, std::unique_ptr<PageDevTools>> dev_tools_;
   bool observes_activity_ = false;
   std::unique_ptr<PageStore> store_;
 

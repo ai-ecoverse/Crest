@@ -26,8 +26,8 @@ namespace crest {
 // isolated world of the agent's own, apart from Crest's content bridges and
 // the page, or in the page's own world. Input, scripts in the page's world and
 // network activity go through a fixed set of in-process DevTools commands for
-// exactly this page; it opens no debugging socket and offers no general
-// protocol entry point. Console messages come from the page itself. The page
+// exactly this page; it opens no debugging socket. Console messages come from
+// the page itself. The page
 // keeps rendering while an agent holds it, though no window shows it.
 class PageAgent final : public content::WebContentsObserver, public content::DevToolsAgentHostClient {
  public:
@@ -112,6 +112,38 @@ class PageAgent final : public content::WebContentsObserver, public content::Dev
 
   base::ScopedClosureRunner rendering_;
   base::WeakPtrFactory<PageAgent> weak_factory_{this};
+};
+
+// One client of the DevTools port in one page, which the person turned on.
+// This is the one general protocol entry point the engine has: messages pass
+// to and from this page's own agent host unchanged, and Swift owns the port,
+// its authorization and the choice of pages. It reaches exactly this page, and
+// the agent host treats it as untrusted, so it reaches neither the browser nor
+// the file system. It lets go of a page that leaves the web.
+class PageDevTools final : public content::DevToolsAgentHostClient {
+ public:
+  using Present = base::RepeatingCallback<void(engine::EnginePresentation)>;
+
+  PageDevTools(content::WebContents* contents, const engine::Guid& page, const engine::Guid& session, Present present);
+  PageDevTools(const PageDevTools&) = delete;
+  PageDevTools& operator=(const PageDevTools&) = delete;
+  ~PageDevTools() override;
+
+  bool IsAttached() const { return !!host_; }
+  bool Send(const std::string& message);
+
+  // content::DevToolsAgentHostClient:
+  void DispatchProtocolMessage(content::DevToolsAgentHost* host, base::span<const uint8_t> message) override;
+  void AgentHostClosed(content::DevToolsAgentHost* host) override;
+  bool MayAttachToURL(const GURL& url, bool is_webui) override;
+
+ private:
+  void Attach(content::WebContents* contents);
+
+  engine::Guid page_;
+  engine::Guid session_;
+  Present present_;
+  scoped_refptr<content::DevToolsAgentHost> host_;
 };
 
 }  // namespace crest

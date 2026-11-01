@@ -166,6 +166,9 @@ final class MobileBrowserPageStore:
             : "Request Desktop Website"
     }
     var residentPageCount: Int { host.runtimes.count }
+    /// Whether this store holds a private window's pages, which no DevTools
+    /// client ever sees.
+    var isPrivateBrowsing: Bool { browsingMode.isPrivate }
 
     /// Which tab of the workspace belongs to which Space and profile, which
     /// page residency follows.

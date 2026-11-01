@@ -980,6 +980,10 @@ merely visiting engine Settings does not.
   the same site.
 - **Services.** Exports, full-page captures and printing use a fixed,
   page-scoped in-process DevTools client that exposes no debugging socket.
+  The DevTools port a person turns on reaches a page through its own in-process
+  client, one per session, whose messages pass through unchanged. It attaches to
+  that page alone, as an untrusted client, and Swift owns the socket, the token,
+  the allowed origins and which pages a client sees.
   Archives use the engine's format: `.mhtml` for Chromium and `.webarchive`
   for WebKit. A docked inspector is mounted inside the page card it inspects.
 

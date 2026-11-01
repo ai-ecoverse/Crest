@@ -226,6 +226,7 @@ void EnginePage::Start(content::WebContents* contents) {
 
 void EnginePage::Stop() {
   settle_timer_.Stop();
+  dev_tools_.clear();
   agent_.reset();
   documents_.reset();
   store_.reset();
@@ -1458,6 +1459,28 @@ PageAgent* EnginePage::Agent() {
                                          base::BindRepeating(&EnginePage::Present, weak_factory_.GetWeakPtr()));
   }
   return agent_.get();
+}
+
+bool EnginePage::Answer(const engine::OpenPageDevTools& request) {
+  if (!web_contents()) {
+    return false;
+  }
+  auto session = std::make_unique<PageDevTools>(web_contents(), id_, request.session_id,
+                                                base::BindRepeating(&EnginePage::Present, weak_factory_.GetWeakPtr()));
+  if (!session->IsAttached()) {
+    return false;
+  }
+  dev_tools_.insert_or_assign(GuidText(request.session_id), std::move(session));
+  return true;
+}
+
+bool EnginePage::Answer(const engine::SendPageDevTools& request) {
+  auto session = dev_tools_.find(GuidText(request.session_id));
+  return session != dev_tools_.end() && session->second->Send(request.message);
+}
+
+bool EnginePage::Answer(const engine::ClosePageDevTools& request) {
+  return dev_tools_.erase(GuidText(request.session_id)) > 0;
 }
 
 bool EnginePage::Answer(const engine::ObservePageActivity& request) {

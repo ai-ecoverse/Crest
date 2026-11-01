@@ -57,6 +57,8 @@ private final class BrowserMobileApplication {
     /// installed launch watches them; an isolated launch keeps its residency
     /// exactly where a test put it, and hears only UIKit's memory warning.
     let memoryPressure: BrowserMemoryPressureMonitor
+    /// The DevTools port a person can turn on in Settings.
+    let devTools: MobileBrowserDevTools
 
     init() throws {
         #if CREST_REVIEW_BUILD
@@ -173,6 +175,7 @@ private final class BrowserMobileApplication {
                 usesIsolatedLaunch: usesIsolatedLaunch
             )
         startupBehavior = browser.startupBehavior(for: launchEnvironment)
+        devTools = MobileBrowserDevTools(stores: pageStoreRegistry, spaceAccess: spaceAccess)
         let memoryPressure = BrowserMemoryPressureMonitor(core: core) { [pageStoreRegistry] in
             pageStoreRegistry.liveStores
         }
@@ -204,6 +207,7 @@ private final class BrowserMobileApplication {
         .environment(cloudSync)
         .environment(onboardingCoordinator)
         .environment(passkeyAccess)
+        .environment(devTools)
         .environment(
             \.browserSidebarWidgetRuntime,
             sidebarWidgets

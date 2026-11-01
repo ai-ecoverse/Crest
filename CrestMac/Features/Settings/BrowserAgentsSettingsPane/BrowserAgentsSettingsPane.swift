@@ -71,6 +71,7 @@ struct BrowserAgentsSettingsPane: View {
                 )
             }
             if preferences.isOn { connection }
+            BrowserDevToolsPortSection()
             Section {
                 ForEach(spaces) { space in
                     Toggle(isOn: allows(space)) {

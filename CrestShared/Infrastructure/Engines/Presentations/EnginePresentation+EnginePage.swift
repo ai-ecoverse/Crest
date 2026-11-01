@@ -7,6 +7,8 @@ extension EnginePresentation {
         switch self {
         case .findFinished(let presentation): presentation.deliver(to: page)
         case .pageCaptured(let presentation): presentation.deliver(to: page)
+        case .pageDevToolsClosed(let presentation): presentation.deliver(to: page)
+        case .pageDevToolsMessage(let presentation): presentation.deliver(to: page)
         case .pageExported(let presentation): presentation.deliver(to: page)
         case .pageInputDelivered(let presentation): presentation.deliver(to: page)
         case .pageNavigationCommitted(let presentation): presentation.deliver(to: page)

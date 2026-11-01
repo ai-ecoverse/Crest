@@ -57,6 +57,9 @@ extension MobileBrowserPage: WKNavigationDelegate {
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation?) {
         guard isCurrentNavigation(navigation) else { return }
         if let url = webView.url { reporter.committed(url) }
+        if let script = DevToolsPin.shared.clientScript(for: webView.url) {
+            webView.evaluateJavaScript(script, completionHandler: nil)
+        }
         mediaSessionCoordinator?.didCommitNavigation()
         committedNavigationCount &+= 1
         // A new document drops the supplements that described the old one; a
@@ -93,10 +96,30 @@ extension MobileBrowserPage: WKNavigationDelegate {
         decidePolicyFor navigationAction: WKNavigationAction,
         decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void
     ) {
-        navigationDecider.decision(
-            for: navigationAction,
-            isAppInitiated: isAppInitiated(navigationAction)
-        ).apply(to: self, for: navigationAction, in: webView, decisionHandler: decisionHandler)
+        if WebKitDevToolsDocument.refuses(navigationAction.request.url, in: webView) {
+            decisionHandler(.cancel)
+            return
+        }
+        if navigationAction.targetFrame?.isMainFrame == false {
+            WebKitDevToolsDocument.noteFrame(navigationAction.request.url, in: webView)
+        }
+        guard WebKitDevToolsDocument.holdsNavigation(in: webView) else {
+            navigationDecider.decision(
+                for: navigationAction,
+                isAppInitiated: isAppInitiated(navigationAction)
+            ).apply(to: self, for: navigationAction, in: webView, decisionHandler: decisionHandler)
+            return
+        }
+        Task { @MainActor in
+            guard await WebKitDevToolsDocument.allows(navigationAction.request, in: webView) else {
+                decisionHandler(.cancel)
+                return
+            }
+            navigationDecider.decision(
+                for: navigationAction,
+                isAppInitiated: isAppInitiated(navigationAction)
+            ).apply(to: self, for: navigationAction, in: webView, decisionHandler: decisionHandler)
+        }
     }
 
     /// Where the person touched the link `navigationAction` follows, for a

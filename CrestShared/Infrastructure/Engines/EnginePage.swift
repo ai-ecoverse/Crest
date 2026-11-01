@@ -28,6 +28,8 @@ final class EnginePage: BrowserFindExecuting {
     var exports: [UUID: CheckedContinuation<Data, any Error>] = [:]
     /// What an agent's scripts and input wait for, by their identities.
     var agentWaits = EnginePageAgentWaits()
+    /// The DevTools clients attached to this page, by engine session.
+    var devToolsSessions: [UUID: EngineDevToolsPage] = [:]
     /// The page's requested multiplier, retained across document and view
     /// replacement because an engine can reset its renderer's zoom then.
     private var requestedZoom: CGFloat?

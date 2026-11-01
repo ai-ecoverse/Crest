@@ -4625,6 +4625,10 @@
     "space-picker-stronger-selection": {
       "category": "improved",
       "message": "The selected Space in the Space picker has a bolder outline, so it stays clear on a Space of the same colour."
+    },
+    "devtools-port": {
+      "category": "new",
+      "message": "Turn on a DevTools port so an agent running in an allowed website can control your open tabs."
     }
   }
 }

@@ -36,6 +36,7 @@ struct SpacePageRoot<Content: View>: View {
             .environment(objects.passkeyAccess)
             .environment(objects.softwareUpdates)
             .environment(objects.agentEndpoint)
+            .environment(objects.devTools)
             .environment(objects.core)
     }
 }

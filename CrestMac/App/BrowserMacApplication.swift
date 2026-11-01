@@ -24,6 +24,8 @@ final class BrowserMacApplication {
     /// Whether agents can reach Crest now: the agent service keeps it and
     /// settings show it.
     let agentEndpoint = BrowserAgentEndpointStatus()
+    /// The DevTools port a person can turn on in Settings.
+    private(set) lazy var devTools = BrowserMacDevTools(application: self)
     let shortcuts: BrowserShortcutStore
     let spaceSettingsPresentation: BrowserSpaceSettingsPresentationState
     let softwareUpdates: BrowserSoftwareUpdateService
@@ -344,6 +346,7 @@ final class BrowserMacApplication {
         .environment(softwareUpdates)
         .environment(passkeyAccess)
         .environment(agentEndpoint)
+        .environment(devTools)
         .environment(browser.core)
         .environment(browser.core.engines)
         .environment(\.browserSidebarWidgetRuntime, sidebarWidgets)
@@ -364,6 +367,7 @@ final class BrowserMacApplication {
         .environment(softwareUpdates)
         .environment(passkeyAccess)
         .environment(agentEndpoint)
+        .environment(devTools)
         .environment(privateBrowser.core)
         .environment(privateBrowser.core.engines)
         .environment(

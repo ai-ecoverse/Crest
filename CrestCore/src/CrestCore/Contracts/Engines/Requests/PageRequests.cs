@@ -339,6 +339,19 @@ public sealed record SaveInteractionState(Guid PageId) : PageRequest<Interaction
 public sealed record EvaluatePageScript(Guid PageId, Guid EvaluationId, string Source, PageScriptWorld World)
     : PageRequest<bool>;
 
+/// Opens DevTools session `SessionId` on the page, for a client the person let
+/// through the DevTools port. It reaches this page alone and nothing of the
+/// browser, and everything the page says arrives as `PageDevToolsMessage`.
+/// False when the page shows no web content or the engine has no protocol.
+public sealed record OpenPageDevTools(Guid PageId, Guid SessionId) : PageRequest<bool>;
+
+/// Hands session `SessionId` one protocol message, as JSON text, unchanged.
+/// False when the session is gone.
+public sealed record SendPageDevTools(Guid PageId, Guid SessionId, string Message) : PageRequest<bool>;
+
+/// Ends session `SessionId`.
+public sealed record ClosePageDevTools(Guid PageId, Guid SessionId) : PageRequest<bool>;
+
 /// Where a script an agent asked for runs: the agent world, which the page
 /// and Crest's own content scripts never see, or the page's own world.
 public enum PageScriptWorld {

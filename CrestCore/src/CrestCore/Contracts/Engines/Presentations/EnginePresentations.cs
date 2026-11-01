@@ -103,6 +103,14 @@ public sealed record ContentScriptEvaluated(Guid PageId, Guid EvaluationId, stri
 public sealed record PageScriptEvaluated(Guid PageId, Guid EvaluationId, string? Json, string? Error)
     : EnginePagePresentation(PageId);
 
+/// What the page's DevTools agent said on session `SessionId`, as JSON text,
+/// unchanged.
+public sealed record PageDevToolsMessage(Guid PageId, Guid SessionId, string Message)
+    : EnginePagePresentation(PageId);
+
+/// The engine ended session `SessionId`, as when the page left the web.
+public sealed record PageDevToolsClosed(Guid PageId, Guid SessionId) : EnginePagePresentation(PageId);
+
 /// Whether the engine delivered input `InputId` to the page, and whether the
 /// page sees it as the person's own input rather than script events.
 public sealed record PageInputDelivered(Guid PageId, Guid InputId, bool Delivered, bool Trusted)

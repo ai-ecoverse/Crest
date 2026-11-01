@@ -185,7 +185,7 @@ final class SpaceScrollGestureTests: XCTestCase {
             assignment: BrowserSpaceRuntimeAssignment(space: space),
             objects: SpacePageObjects(
                 sidebarInteraction: nil, extensionSidePanel: nil, downloadFeedback: nil, passkeyAccess: nil,
-                softwareUpdates: nil, agentEndpoint: nil, core: nil))
+                softwareUpdates: nil, agentEndpoint: nil, devTools: nil, core: nil))
     }
 
     private func input(

@@ -472,6 +472,8 @@ enum EnginePresentation: Equatable, Sendable {
     case linkHovered(LinkHovered)
     case mediaSessionChanged(MediaSessionChanged)
     case pageCaptured(PageCaptured)
+    case pageDevToolsClosed(PageDevToolsClosed)
+    case pageDevToolsMessage(PageDevToolsMessage)
     case pageExported(PageExported)
     case pageInputDelivered(PageInputDelivered)
     case pageInteracted(PageInteracted)
@@ -517,6 +519,8 @@ enum EnginePresentation: Equatable, Sendable {
         case .linkHovered(let value): value.pageID
         case .mediaSessionChanged(let value): value.pageID
         case .pageCaptured(let value): value.pageID
+        case .pageDevToolsClosed(let value): value.pageID
+        case .pageDevToolsMessage(let value): value.pageID
         case .pageExported(let value): value.pageID
         case .pageInputDelivered(let value): value.pageID
         case .pageInteracted(let value): value.pageID
@@ -1613,6 +1617,13 @@ struct CloseInspector: PageRequest, Equatable, Sendable {
 struct ClosePage: Equatable, Sendable {
     let pageID: UUID
     let keepsState: Bool
+}
+
+struct ClosePageDevTools: PageRequest, Equatable, Sendable {
+    typealias Answer = Bool
+
+    let pageID: UUID
+    let sessionID: UUID
 }
 
 struct ClosePreparationUnderway: Equatable, Sendable {
@@ -4127,6 +4138,13 @@ struct OpenPage: Intent, PageIntent, Equatable, Sendable {
     let openerPageID: UUID?
 }
 
+struct OpenPageDevTools: PageRequest, Equatable, Sendable {
+    typealias Answer = Bool
+
+    let pageID: UUID
+    let sessionID: UUID
+}
+
 struct OpenTab: Intent, SessionIntent, Equatable, Sendable {
     let workspaceID: UUID
     let windowID: UUID
@@ -4225,6 +4243,17 @@ struct PageCreated: EngineEvent, PageEvent, Equatable, Sendable {
 
 struct PageCreationFailed: EngineEvent, PageEvent, Equatable, Sendable {
     let pageID: UUID
+}
+
+struct PageDevToolsClosed: Equatable, Sendable {
+    let pageID: UUID
+    let sessionID: UUID
+}
+
+struct PageDevToolsMessage: Equatable, Sendable {
+    let pageID: UUID
+    let sessionID: UUID
+    let message: String
 }
 
 struct PageExported: Equatable, Sendable {
@@ -5521,6 +5550,14 @@ struct SelectionSearch: Query, Equatable, Sendable {
 struct SelectionSearchAnswer: Equatable, Sendable {
     let url: String?
     let engineTitle: String
+}
+
+struct SendPageDevTools: PageRequest, Equatable, Sendable {
+    typealias Answer = Bool
+
+    let pageID: UUID
+    let sessionID: UUID
+    let message: String
 }
 
 struct SendPermission: Equatable, Sendable {
