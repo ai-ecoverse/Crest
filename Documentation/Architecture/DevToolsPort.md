@@ -139,6 +139,10 @@ Clients should know these, because Crest can't remove them:
 - **Frames from before the port.** A frame nested inside a cross-origin frame is known
   only from the navigation delegate, which records it while the port is open. One
   loaded before that isn't listed. Frames that a page can see for itself are.
+- **A child frame's origin.** `securityOrigin` comes from the frame's `url`, not from its
+  document, which no API reports. A frame loaded before the port opened shows the
+  address it asked for, even if a redirect took it elsewhere. While the port is open,
+  the redirect's address is listed too, because the navigation delegate sees each hop.
 - **Frames that failed.** `unreachableUrl` is never sent. WebKit doesn't report a child
   frame's failure, so `url` stays the address the frame asked for, which hides nothing.
 - **Bodies and correlation.** `Network.getResponseBody` is refused, because `WKWebView`
