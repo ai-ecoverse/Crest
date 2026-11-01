@@ -204,7 +204,18 @@ enum WebKitDevToolsRuntime {
           return found;
         };
         const framesOf = (request) => {
-          const frames = walkFrames(document, []).map((element) => ({ id: frameIdOf(element), url: frameURL(element) }));
+          const navigated = new Map((request.navigated ?? []).map((frame) => [frame.url, frame.id]));
+          const named = new Set();
+          const frames = walkFrames(document, []).map((element) => {
+            // The id a client heard for this address, the first time it's seen.
+            const url = frameURL(element);
+            const id = navigated.get(url);
+            if (id && !named.has(id)) {
+              named.add(id);
+              frameIds.set(element, id);
+            }
+            return { id: frameIdOf(element), url };
+          });
           const known = new Set(frames.map((frame) => frame.url));
           // A closed shadow root hides its frames from every script, but their
           // loads still appear in the document's timeline, and the navigation
@@ -212,10 +223,10 @@ enum WebKitDevToolsRuntime {
           const loaded = performance.getEntriesByType("resource")
             .filter((entry) => entry.initiatorType === "iframe" || entry.initiatorType === "frame")
             .map((entry) => entry.name);
-          for (const url of [...loaded, ...(request.navigated ?? [])]) {
+          for (const url of [...loaded, ...navigated.keys()]) {
             if (known.has(url)) continue;
             known.add(url);
-            if (!frameKeys.has(url)) frameKeys.set(url, newFrameId());
+            if (!frameKeys.has(url)) frameKeys.set(url, navigated.get(url) ?? newFrameId());
             frames.push({ id: frameKeys.get(url), url });
           }
           return { frames };

@@ -114,13 +114,19 @@ final class WebKitDevToolsPage: NSObject, DevToolsPageSession {
         let httpOnly: Bool?
         let expires: Double?
         let sameSite: String?
+        let partitionKey: DevToolsValue?
 
-        /// This write as a cookie, or nil when it names no host.
+        /// This write as a cookie, or nil when it names no host, names two that
+        /// disagree, or asks for a partition, which `WKHTTPCookieStore` can't
+        /// write to.
         var cookie: HTTPCookie? {
             let origin = url.flatMap(URL.init(string:))
-            guard let host = domain ?? origin?.host else { return nil }
+            guard partitionKey == nil, let host = domain ?? origin?.host,
+                domain.map({ WebKitDevToolsCookieScope.agrees(domain: $0, with: origin) }) ?? true
+            else { return nil }
             var properties: [HTTPCookiePropertyKey: Any] = [
-                .name: name, .value: value, .domain: host, .path: path ?? "/",
+                .name: name, .value: value, .domain: host,
+                .path: path ?? WebKitDevToolsCookieScope.defaultPath(for: origin),
             ]
             if secure == true || origin?.scheme == "https" { properties[.secure] = "TRUE" }
             if let expires, expires > 0 { properties[.expires] = Date(timeIntervalSince1970: expires) }
@@ -610,8 +616,10 @@ final class WebKitDevToolsPage: NSObject, DevToolsPageSession {
     private func cookies(_ parameters: DevToolsValue) async throws -> DevToolsValue {
         let cookies = try await reachableCookies()
         var urls = try parameters.decoded(as: CookieQuery.self).urls?.compactMap(URL.init(string:)) ?? []
-        if urls.isEmpty, let url = webView?.url { urls = [url] }
-        let scoped = cookies.filter { cookie in urls.contains { Self.applies(cookie, to: $0) } }
+        if urls.isEmpty { urls = try await document.frameURLs() }
+        let scoped = cookies.filter { cookie in
+            urls.contains { WebKitDevToolsCookieScope.applies(cookie, to: $0) }
+        }
         return .object(["cookies": .array(scoped.map(Self.value(of:)))])
     }
 
@@ -624,7 +632,9 @@ final class WebKitDevToolsPage: NSObject, DevToolsPageSession {
     }
 
     private func setCookies(_ parameters: DevToolsValue) async throws -> DevToolsValue {
-        _ = await write(try parameters.decoded(as: CookiesWrite.self).cookies)
+        guard await write(try parameters.decoded(as: CookiesWrite.self).cookies) else {
+            throw DevToolsFailure(message: "Invalid cookie fields")
+        }
         return .object([:])
     }
 
@@ -639,33 +649,35 @@ final class WebKitDevToolsPage: NSObject, DevToolsPageSession {
         guard let cookieStore else { throw DevToolsFailure.pageGone }
         let deletion = try parameters.decoded(as: CookieDeletion.self)
         let scope = deletion.url.flatMap(URL.init(string:))
-        let domain = deletion.domain ?? scope?.host
+        guard scope != nil || deletion.domain != nil else {
+            throw DevToolsFailure(message: "At least one of the url and domain needs to be specified")
+        }
         for cookie in try await reachableCookies() where cookie.name == deletion.name {
-            guard domain.map({ Self.matches(cookie.domain, host: $0) }) ?? true else { continue }
+            let domain = WebKitDevToolsCookieScope.bare(cookie.domain)
+            guard deletion.domain.map({ WebKitDevToolsCookieScope.bare($0) == domain }) ?? true else { continue }
+            guard scope.map({ WebKitDevToolsCookieScope.applies(cookie, to: $0) }) ?? true else { continue }
             guard deletion.path.map({ $0 == cookie.path }) ?? true else { continue }
             await cookieStore.deleteCookie(cookie)
         }
         return .object([:])
     }
 
-    private static func matches(_ cookieDomain: String, host: String) -> Bool {
-        let bare = cookieDomain.hasPrefix(".") ? String(cookieDomain.dropFirst()) : cookieDomain
-        return host == bare || host.hasSuffix("." + bare)
-    }
-
-    private static func applies(_ cookie: HTTPCookie, to url: URL) -> Bool {
-        guard let host = url.host, matches(cookie.domain, host: host) else { return false }
-        return url.path.isEmpty ? cookie.path == "/" : url.path.hasPrefix(cookie.path)
-    }
-
+    /// `partitionKey` stays out: `HTTPCookie` doesn't say whether it has one.
     private static func value(of cookie: HTTPCookie) -> DevToolsValue {
-        .object([
+        var value: [String: DevToolsValue] = [
             "name": .string(cookie.name), "value": .string(cookie.value), "domain": .string(cookie.domain),
             "path": .string(cookie.path), "expires": .number(cookie.expiresDate?.timeIntervalSince1970 ?? -1),
             "size": .number(Double(cookie.name.utf8.count + cookie.value.utf8.count)),
             "httpOnly": .bool(cookie.isHTTPOnly), "secure": .bool(cookie.isSecure),
-            "session": .bool(cookie.isSessionOnly),
-        ])
+            "session": .bool(cookie.isSessionOnly), "priority": .string("Medium"), "sameParty": .bool(false),
+            "sourceScheme": .string("Unset"), "sourcePort": .number(-1),
+        ]
+        switch cookie.sameSitePolicy {
+        case .sameSiteStrict?: value["sameSite"] = .string("Strict")
+        case .sameSiteLax?: value["sameSite"] = .string("Lax")
+        default: break
+        }
+        return .object(value)
     }
 
     // MARK: - Actions - Events

@@ -4645,6 +4645,14 @@
     "vault-store-unreadable-file": {
       "category": "internal",
       "message": "Fail a vault store call when its file can't be read, where the next write used to replace what it held"
+    },
+    "devtools-port-cookie-scope": {
+      "category": "internal",
+      "message": "Follow a request's cookie rules over the DevTools port, and refuse a cookie write Crest can't carry out"
+    },
+    "devtools-port-child-frames": {
+      "category": "internal",
+      "message": "Report child frames with ids of their own over the DevTools port, and answer paused documents during a navigation"
     }
   }
 }

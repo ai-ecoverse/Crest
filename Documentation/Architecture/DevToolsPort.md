@@ -98,17 +98,57 @@ which its navigation delegate refuses.
 ## What `holdsDocuments` promises
 
 `Fetch.enable` answers `holdsDocuments: true`, and clients take that on Crest's word
-because they can't check it. Slicc's node and seven's guard both rely on these, so
-a change that breaks one must stop sending the field:
+because they can't check it. Slicc's node and seven's guard both rely on these, and
+slicc-cli's README keeps the same list, so a change that breaks one must stop sending
+the field:
 
 - Each matching document, in any frame, waits for the client's answer, and one that
-  gets no answer doesn't load.
-- The hold on a client's own session stays in place whatever other sessions do.
+  gets no answer doesn't load. That includes a child frame restored from history:
+  WebKit asks the navigation delegate for it, as measured on a page evicted from the
+  back-forward cache. A page restored from that cache loads nothing, so it brings back
+  only what was already let through.
+- The hold on a client's own session stays in place whatever other sessions do,
+  including their interception, bypass and observation. `Network.setBypassServiceWorker`
+  changes nothing here, and `Fetch` and `Network` have no browser-level commands.
 - `Input` stays in the main document and never reaches a child frame.
 - `Page.getFrameTree` and `DOM.getDocument` list child frames by address, and never
   return a child frame's content.
-- `Runtime.callFunctionOn` and `Runtime.getProperties`, on any object including one
-  for a frame's window, never cross into a child frame.
+- That frame evidence gives every frame its `url` and `securityOrigin`, within the
+  limits below. Addresses a frame left stay listed until the page's next document, so
+  the list can only say too much.
+- `Runtime.callFunctionOn`, `Runtime.getProperties`, `Accessibility` and the other
+  allowed `DOM` commands, on any object including one for a frame's window, stay in
+  the main document and never cross into a child frame.
+- `Runtime.evaluate` keeps the page's same-origin rules, and so does every world
+  `Page.createIsolatedWorld` makes. `grantUniveralAccess` is ignored.
+- Cookie answers report a cookie's real `domain`. `Network.getCookies` defaults to the
+  page and its frames and follows the rules of a request: host-only and domain cookies,
+  paths on their separators, and secure cookies only to secure addresses. A cookie
+  write goes where it says, never to the active tab, and fails when its `url` and
+  `domain` disagree. `Network.deleteCookies` needs a `url` or `domain`.
+- Target and history evidence is truthful, and `Target.createTarget` makes a new tab
+  at the given address.
+
+### Where the promises stop
+
+Clients should know these, because Crest can't remove them:
+
+- **Cookie partitions.** Neither `HTTPCookie` nor `WKHTTPCookieStore` says whether a
+  cookie is partitioned, so answers have no `partitionKey`, and a missing key doesn't
+  prove there's no partition. A write with `partitionKey` fails.
+- **Frames from before the port.** A frame nested inside a cross-origin frame is known
+  only from the navigation delegate, which records it while the port is open. One
+  loaded before that isn't listed. Frames that a page can see for itself are.
+- **Frames that failed.** `unreachableUrl` is never sent. WebKit doesn't report a child
+  frame's failure, so `url` stays the address the frame asked for, which hides nothing.
+- **Bodies and correlation.** `Network.getResponseBody` is refused, because `WKWebView`
+  doesn't expose bodies. `Fetch.requestPaused`'s `networkId` matches no `Network` event,
+  since those come from the page's own timeline and have ids of their own.
+
+Child frames have ids that stand for an address, since `WKWebView` names no frame.
+Two frames at one address share an id on `Fetch.requestPaused` and `Page.frameNavigated`.
+`Page.frameAttached` and `Page.frameNavigated` come when a child frame is let through,
+since no delegate call follows its commit, so one that then fails was still reported.
 
 ## iOS lifetime
 

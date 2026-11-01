@@ -44,6 +44,8 @@ final class DevToolsClient {
     /// must not hold back the commands sent after them.
     private static let waitingMethods: Set<String> = [
         "Runtime.evaluate", "Runtime.callFunctionOn", "Runtime.awaitPromise",
+        // A navigation can be waiting for exactly this answer.
+        "Fetch.continueRequest", "Fetch.failRequest",
     ]
 
     /// Events that name a session the engine opened under a page.

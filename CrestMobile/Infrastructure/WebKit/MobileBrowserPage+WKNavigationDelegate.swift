@@ -106,6 +106,7 @@ extension MobileBrowserPage: WKNavigationDelegate {
             WebKitDevToolsDocument.noteFrame(navigationAction.request.url, in: webView)
         }
         guard WebKitDevToolsDocument.holdsNavigation(in: webView) else {
+            WebKitDevToolsDocument.reportFrame(of: navigationAction, in: webView)
             navigationDecider.decision(
                 for: navigationAction,
                 isAppInitiated: isAppInitiated(navigationAction)
@@ -113,7 +114,7 @@ extension MobileBrowserPage: WKNavigationDelegate {
             return
         }
         Task { @MainActor in
-            guard await WebKitDevToolsDocument.allows(navigationAction.request, in: webView) else {
+            guard await WebKitDevToolsDocument.allows(navigationAction, in: webView) else {
                 decisionHandler(.cancel)
                 return
             }

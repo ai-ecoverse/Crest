@@ -170,11 +170,13 @@ final class WebKitDevToolsDocument: NSObject {
     /// request, but a navigation delegate can hold a navigation for as long as
     /// it likes, so a document that's held never loads and nothing can race it.
     /// A client that doesn't answer is refused.
-    static func allows(_ request: URLRequest, in webView: WKWebView) async -> Bool {
+    static func allows(_ action: WKNavigationAction, in webView: WKWebView) async -> Bool {
         guard let document = attached.object(forKey: webView) else { return true }
+        let frame = childFrameID(of: action, in: webView) ?? document.frameID
         for session in document.sessions where session.pausesDocuments {
-            guard await document.ask(session, about: request) else { return false }
+            guard await document.ask(session, about: action.request, frame: frame) else { return false }
         }
+        reportFrame(of: action, in: webView)
         return true
     }
 
@@ -231,12 +233,46 @@ final class WebKitDevToolsDocument: NSObject {
     /// closed shadow root hides them from every script, and no script reaches
     /// into a cross-origin frame, so a frame nested in one is known only here.
     /// A client that attaches later still hears about a protected frame the
-    /// page loaded first. A blank frame has no address to add.
+    /// page loaded first. A blank frame has no address to add. `WKWebView`
+    /// names no frame, so an address stands for the frame that loaded it.
     static func noteFrame(_ url: URL?, in webView: WKWebView) {
         guard DevToolsPin.shared.isOpen, let url, url.scheme != "about" else { return }
         let addresses = frameAddresses.object(forKey: webView) ?? FrameAddresses()
-        addresses.urls.insert(url.absoluteString)
         frameAddresses.setObject(addresses, forKey: webView)
+        guard addresses.ids[url.absoluteString] == nil else { return }
+        let id = UUID().uuidString
+        addresses.ids[url.absoluteString] = id
+        attached.object(forKey: webView)?.reportFrameAttached(id)
+    }
+
+    /// Says a child frame went on to load `action`'s address. No delegate call
+    /// follows a child frame's commit, so this is as late as a client can hear
+    /// of it, and clients read the page's frames again on hearing.
+    static func reportFrame(of action: WKNavigationAction, in webView: WKWebView) {
+        guard let url = action.request.url, let id = childFrameID(of: action, in: webView) else { return }
+        attached.object(forKey: webView)?.reportFrameNavigated(id, to: url)
+    }
+
+    private static func childFrameID(of action: WKNavigationAction, in webView: WKWebView) -> String? {
+        guard action.targetFrame?.isMainFrame == false, let url = action.request.url?.absoluteString else { return nil }
+        return frameAddresses.object(forKey: webView)?.ids[url]
+    }
+
+    private func reportFrameAttached(_ id: String) {
+        for session in sessions {
+            session.report(
+                "Page.frameAttached", ["frameId": .string(id), "parentFrameId": .string(frameID)],
+                when: session.isPageEnabled)
+        }
+    }
+
+    private func reportFrameNavigated(_ id: String, to url: URL) {
+        for session in sessions {
+            session.report(
+                "Page.frameNavigated",
+                ["frame": childFrameValue(id: .string(id), url: url.absoluteString), "type": .string("Navigation")],
+                when: session.isPageEnabled)
+        }
     }
 
     /// Forgets the frames of the document `webView` replaced.
@@ -259,7 +295,7 @@ final class WebKitDevToolsDocument: NSObject {
 
     // MARK: - Actions - Paused documents
 
-    private func ask(_ session: WebKitDevToolsPage, about request: URLRequest) async -> Bool {
+    private func ask(_ session: WebKitDevToolsPage, about request: URLRequest, frame: String) async -> Bool {
         let requestID = "crest-document-\(nextPause)"
         nextPause += 1
         return await withCheckedContinuation { continuation in
@@ -268,7 +304,7 @@ final class WebKitDevToolsDocument: NSObject {
             session.report(
                 "Fetch.requestPaused",
                 [
-                    "requestId": .string(requestID), "frameId": .string(frameID), "resourceType": .string("Document"),
+                    "requestId": .string(requestID), "frameId": .string(frame), "resourceType": .string("Document"),
                     "networkId": .string(requestID),
                     "request": .object([
                         "url": .string(request.url?.absoluteString ?? ""),
@@ -495,24 +531,39 @@ final class WebKitDevToolsDocument: NSObject {
     /// tell what the page embeds, and can't be driven: `WKWebView` reaches only
     /// the main frame. An address alone is all a closed shadow root gives up.
     func frameTree() async throws -> DevToolsValue {
-        let navigated = webView.flatMap { Self.frameAddresses.object(forKey: $0)?.urls } ?? []
-        let request = DevToolsValue.object(["navigated": .array(navigated.sorted().map(DevToolsValue.string))])
+        let navigated = webView.flatMap { Self.frameAddresses.object(forKey: $0)?.ids } ?? [:]
+        let request = DevToolsValue.object([
+            "navigated": .array(
+                navigated.sorted { $0.key < $1.key }.map { .object(["url": .string($0.key), "id": .string($0.value)]) })
+        ])
         let listed = try await run("frames", request)
         guard case .array(let frames)? = listed["frames"] else { return .object(["frame": frameValue()]) }
         let children = frames.map { frame -> DevToolsValue in
-            let url = frame["url"]?.string ?? "about:blank"
-            let origin = URL(string: url)?.devToolsOrigin ?? "null"
-            return .object([
-                "frame": .object([
-                    "id": frame["id"] ?? .string(""), "parentId": .string(frameID), "loaderId": .string(loaderID),
-                    "url": .string(url), "domainAndRegistry": .string(""), "securityOrigin": .string(origin),
-                    "mimeType": .string("text/html"), "secureContextType": .string("Secure"),
-                    "crossOriginIsolatedContextType": .string("NotIsolated"), "gatedAPIFeatures": .array([]),
-                ])
+            .object([
+                "frame": childFrameValue(id: frame["id"] ?? .string(""), url: frame["url"]?.string ?? "about:blank")
             ])
         }
         guard !children.isEmpty else { return .object(["frame": frameValue()]) }
         return .object(["frame": frameValue(), "childFrames": .array(children)])
+    }
+
+    private func childFrameValue(id: DevToolsValue, url: String) -> DevToolsValue {
+        .object([
+            "id": id, "parentId": .string(frameID), "loaderId": .string(loaderID), "url": .string(url),
+            "domainAndRegistry": .string(""), "securityOrigin": .string(URL(string: url)?.devToolsOrigin ?? "null"),
+            "mimeType": .string("text/html"), "secureContextType": .string("Secure"),
+            "crossOriginIsolatedContextType": .string("NotIsolated"), "gatedAPIFeatures": .array([]),
+        ])
+    }
+
+    /// The addresses of the page and the frames it embeds, which is what a
+    /// client's cookie query means by default.
+    func frameURLs() async throws -> [URL] {
+        var urls = webView?.url.map { [$0] } ?? []
+        if case .array(let children)? = try await frameTree()["childFrames"] {
+            urls += children.compactMap { $0["frame"]?["url"]?.string.flatMap(URL.init(string:)) }
+        }
+        return urls
     }
 
     /// Says a load was asked for, which a loader id names ahead of its
@@ -805,7 +856,8 @@ final class WebKitDevToolsDocument: NSObject {
 
 /// The addresses one page's frames went to.
 private final class FrameAddresses {
-    var urls: Set<String> = []
+    /// The frame id for each address.
+    var ids: [String: String] = [:]
 }
 
 // MARK: - Reports
