@@ -4633,6 +4633,10 @@
     "devtools-port-frame-addresses": {
       "category": "internal",
       "message": "Keep the addresses of a page's frames while the DevTools port is open, so a client that attaches later hears of them"
+    },
+    "devtools-port-error-text": {
+      "category": "internal",
+      "message": "Report a script error's message over the DevTools port, which WebKit's stack leaves out"
     }
   }
 }

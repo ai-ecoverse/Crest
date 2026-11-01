@@ -85,7 +85,8 @@ enum WebKitDevToolsRuntime {
         const describeObject = (value, subtype) => {
           if (subtype === "array") return `Array(${value.length})`;
           if (subtype === "node") return nodeLabel(value);
-          if (subtype === "error") return String(value.stack || value);
+          // WebKit's stack holds only the frames; Chromium's starts with the error.
+          if (subtype === "error") return value.stack ? `${value}\n${value.stack}` : String(value);
           if (subtype === "regexp" || subtype === "date") return String(value);
           return value.constructor?.name ?? "Object";
         };
