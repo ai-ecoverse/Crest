@@ -196,8 +196,9 @@ enum WebKitDevToolsRuntime {
           if (inside && inside !== "about:blank") return inside;
           return element.src || (element.hasAttribute("srcdoc") ? "about:srcdoc" : "about:blank");
         };
-        const isOpaque = (element) =>
-          element.hasAttribute("sandbox") && !element.sandbox.contains("allow-same-origin");
+        // A frame the page can't reach isn't its origin, whatever its address
+        // says: a sandbox, or a blank frame sent somewhere else.
+        const isOpaque = (element) => !element.contentDocument;
         const walkFrames = (root, found) => {
           for (const node of root.querySelectorAll("*")) {
             if (isFrame(node)) found.push(node);

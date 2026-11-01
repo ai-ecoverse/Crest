@@ -141,7 +141,8 @@ Clients should know these, because Crest can't remove them:
   loaded before that isn't listed. Frames that a page can see for itself are.
 - **A child frame's origin.** `securityOrigin` comes from the frame's `url`, not from its
   document, which no API reports. A blank or `srcdoc` frame takes the page's origin,
-  or `null` under a sandbox without `allow-same-origin`. A frame loaded before the port opened shows the
+  or `null` when the page can't reach its document, as under a sandbox or after it
+  was sent somewhere else. A frame loaded before the port opened shows the
   address it asked for, even if a redirect took it elsewhere. While the port is open,
   the redirect's address is listed too, because the navigation delegate sees each hop.
 - **Frames that failed.** `unreachableUrl` is never sent. WebKit doesn't report a child

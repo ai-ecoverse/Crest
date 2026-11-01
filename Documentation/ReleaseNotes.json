@@ -4657,6 +4657,10 @@
     "devtools-port-blank-frame-origin": {
       "category": "internal",
       "message": "Report a blank frame's origin as its page's over the DevTools port, where clients refused the page"
+    },
+    "devtools-port-unreachable-frame-origin": {
+      "category": "internal",
+      "message": "Report no origin over the DevTools port for a blank frame the page can't reach"
     }
   }
 }

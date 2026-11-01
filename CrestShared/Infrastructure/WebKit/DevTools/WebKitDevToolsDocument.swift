@@ -550,7 +550,7 @@ final class WebKitDevToolsDocument: NSObject {
     }
 
     /// A blank or `srcdoc` frame has no address of its own and takes the page's
-    /// origin, unless a sandbox gives it an opaque one.
+    /// origin, unless the page can't reach it, which `isOpaque` says.
     private func childFrameValue(id: DevToolsValue, url: String, isOpaque: Bool = false) -> DevToolsValue {
         let inherited = url.hasPrefix("about:") && !isOpaque
         let origin =
